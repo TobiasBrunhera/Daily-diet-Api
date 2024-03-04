@@ -6,7 +6,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "knex": "node --import tsx ./node_modules/knex/bin/cli.js",
+    "knex": "node --loader tsx ./node_modules/knex/bin/cli.js",
     "lint": "eslint src --ext .ts --fix",
     "build": "tsup src --out-dir build",
     "test": "vitest --run"
@@ -30,7 +30,7 @@
     "sqlite3": "^5.1.4",
     "supertest": "^6.3.3",
     "tsup": "^8.0.1",
-    "tsx": "^4.6.2",
+    "tsx": "^4.7.1",
     "typescript": "^5.3.3",
     "vitest": "^1.0.4"
   }
