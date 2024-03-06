@@ -58,7 +58,6 @@ export async function mealsRoutes(app: FastifyInstance) {
       }
 
       return reply.send({ meal })
-
     }
   )
 }
