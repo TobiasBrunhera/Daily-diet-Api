@@ -35,19 +35,30 @@ export async function mealsRoutes(app: FastifyInstance) {
 
   app.get(
     '/',
+    { preHandler: checkSessionIdExists },
     async (request, reply) => {
-      try {
-        // Verifica se o ID do usuário está presente na solicitação
-        if (!request.user?.id) {
-          return reply.status(401).send({ message: 'Unauthorized' });
-        }
+      const meals = await knex('meals').returning('*')
 
-        // Busca as refeições do usuário no banco de dados
-        const meals = await knex('meals').where({ user_id: request.user.id }).orderBy('date', 'desc');
-        return reply.send({ meals });
-      } catch (error) {
-        return reply.status(500).send({ message: 'Internal Server Error' });
-      }
+      return reply.send({ meals })
     }
-  );
+  )
+
+  app.get(
+    '/:mealId',
+    { preHandler: checkSessionIdExists },
+    async (request, reply) => {
+      const paramsSchema = z.object({ mealId: z.string().uuid() })
+
+      const { mealId } = paramsSchema.parse(request.params)
+
+      const meal = await knex('meals').where({ id: mealId }).first()
+
+      if(!meal) {
+        return reply.status(401).send({ error: 'Meal not found' })
+      }
+
+      return reply.send({ meal })
+
+    }
+  )
 }
