@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto'
 import { z } from 'zod'
 import { knex } from '../database'
 import { checkSessionIdExists } from '../middlewares/check-session-id-exists'
-import { request } from 'http'
 
 export async function mealsRoutes(app: FastifyInstance) {
   app.post(
@@ -22,7 +21,7 @@ export async function mealsRoutes(app: FastifyInstance) {
       )
 
       await knex('meals').insert({
-        id: randomUUID(),
+        id: request.user?.id,
         name,
         description,
         is_on_diet: isOnDiet,
@@ -63,7 +62,7 @@ export async function mealsRoutes(app: FastifyInstance) {
   )
 
   app.put(
-    '/mealId',
+    '/:mealId',
     { preHandler: [checkSessionIdExists] },
     async (request, reply) => {
       const paramsSchema = z.object({ mealId: z.string().uuid() })
@@ -85,14 +84,58 @@ export async function mealsRoutes(app: FastifyInstance) {
         return reply.status(404).send({ error: 'Meal not found' })
       }
 
-      await knex('meals').where({ id: mealId }).update({
+      const updateMeals = await knex('meals').where({ id: mealId }).update({
         name,
         description,
         is_on_diet: isOnDiet,
         date: date.getTime()
       })
 
-      return reply.status(204).send()
+      return reply.status(204).send({ updateMeals })
     }
+  )
+
+  app.get(
+    '/metrics',
+    { preHandler: [checkSessionIdExists] },
+    async (request, reply) => {
+      const totalMealsOnDiet = await knex('meals')
+        .where({ user_id: request.user?.id, is_on_diet: true })
+        .count('id', { as: 'total' })
+        .first()
+
+      const totalMealsOffDiet = await knex('meals')
+        .where({ user_id: request.user?.id, is_on_diet: false })
+        .count('id', { as: 'total' })
+        .first()
+
+      const totalMeals = await knex('meals')
+        .where({ user_id: request.user?.id })
+        .orderBy('date', 'desc')
+
+      const { bestOnDietSequence } = totalMeals.reduce(
+        (acc, meal) => {
+          if (meal.is_on_diet) {
+            acc.currentSequence += 1
+          } else {
+            acc.currentSequence = 0
+          }
+
+          if (acc.currentSequence > acc.bestOnDietSequence) {
+            acc.bestOnDietSequence = acc.currentSequence
+          }
+
+          return acc
+        },
+        { bestOnDietSequence: 0, currentSequence: 0 },
+      )
+
+      return reply.send({
+        totalMeals: totalMeals.length,
+        totalMealsOnDiet: totalMealsOnDiet?.total,
+        totalMealsOffDiet: totalMealsOffDiet?.total,
+        bestOnDietSequence,
+      })
+    },
   )
 }
